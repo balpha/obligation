@@ -65,7 +65,7 @@ public abstract class Obligation {
         HashSet<Integer> fulfilled = new HashSet<Integer>();
         LinkedList<Instruction> unfulfilled = new LinkedList<Instruction>();
         for (Instruction inst: instructions) {
-            if (inst.parameters.length == 0) {
+            if (inst.needed.length == 0) {
                 queue.add(inst);
             } else {
                 unfulfilled.add(inst);
@@ -83,7 +83,7 @@ public abstract class Obligation {
             while (it.hasNext()) {
                 Instruction inst2 = it.next();
                 boolean ok = true;
-                for (int param : inst2.parameters) {
+                for (int param : inst2.needed) {
                     if (!fulfilled.contains(param)) {
                         ok = false;
                         break;
@@ -138,24 +138,27 @@ public abstract class Obligation {
                 throw new RuntimeException("Obligation method " + method.getName() + " has formal parameters but not @Needs()");
             }
             if (needs == null) {
-                inst.parameters = new int[0];
+                inst.needed = new int[0];
             } else {
-                int[] paramIds = needs.value();
-                if (params.length != paramIds.length)
-                    throw new RuntimeException("Obligation method " + method.getName() + " parameter count doesn't match @Needs() arguments");
-                inst.parameters = new int[params.length];
-                for (int i = 0; i < params.length; i++) {
-                    Integer needsId = idMap.get(paramIds[i]);
+                int[] neededIds = needs.value();
+                if (params.length > neededIds.length)
+                    throw new RuntimeException("Obligation method " + method.getName() + " has more parameters than @Needs() arguments");
+                inst.needed = new int[neededIds.length];
+                inst.parameterCount = params.length;
+                for (int i = 0; i < neededIds.length; i++) {
+                    Integer needsId = idMap.get(neededIds[i]);
                     if (needsId == null)
-                        throw new RuntimeException("Obligation method " + method.getName() + " needs object id " + paramIds[i] + " which isn't provided");
-                    if (!params[i].isAssignableFrom(providerTypes.get(needsId)))
-                        throw new RuntimeException("Obligation method " + method.getName() + " parameter " + i + " has type " + params[i].getName() + " but needs object id " + paramIds[i] + " which is " + providerTypes.get(needsId));
-                    inst.parameters[i] = needsId;
+                        throw new RuntimeException("Obligation method " + method.getName() + " needs object id " + neededIds[i] + " which isn't provided");
+                    inst.needed[i] = needsId;
+                    if (i < params.length) {
+                        if (!params[i].isAssignableFrom(providerTypes.get(needsId)))
+                            throw new RuntimeException("Obligation method " + method.getName() + " parameter " + i + " has type " + params[i].getName() + " but needs object id " + neededIds[i] + " which is " + providerTypes.get(needsId));
+                    }
                 }
             }
             if (inst.result >= 0)
                 providers.add(inst);
-            if (inst.parameters.length > 0)
+            if (inst.needed.length > 0)
                 needers.add(inst);
             all.add(inst);
             inst.method.setAccessible(true);

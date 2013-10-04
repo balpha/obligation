@@ -4,7 +4,8 @@ import java.lang.reflect.Method;
 
 /* package */ class Instruction {
     int result;
-    int[] parameters;
+    int[] needed;
+    int parameterCount; // the first this much of needed are actually parameters of the method
     Method method;
     boolean async;
 }

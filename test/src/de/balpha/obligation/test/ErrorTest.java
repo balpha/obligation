@@ -31,7 +31,7 @@ public class ErrorTest extends ActivityInstrumentationTestCase2<TestActivity> {
 
     private static class ParamCountMismatch extends Obligation {
         @Needs({1, 2})
-        private void foo(String s) { }
+        private void foo(String s1, String s2, String s3) { }
 
         @Provides(1)
         private String foo() { return ""; }
@@ -64,7 +64,7 @@ public class ErrorTest extends ActivityInstrumentationTestCase2<TestActivity> {
         assertErrorContains(NotProvided.class, "isn't provided");
         assertErrorContains(Dupe.class, "multiple Obligation methods provide");
         assertErrorContains(TypeMismatch.class, "but needs object id 1 which is");
-        assertErrorContains(ParamCountMismatch.class, "parameter count doesn't match @Needs() arguments");
+        assertErrorContains(ParamCountMismatch.class, "has more parameters than @Needs() arguments");
         assertErrorContains(Circular1.class, "circular dependencies");
         assertErrorContains(Circular2.class, "circular dependencies");
     }

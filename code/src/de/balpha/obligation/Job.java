@@ -30,14 +30,14 @@ import java.util.concurrent.Executors;
         mDependent = new LinkedList<Instruction>(Arrays.asList(mInstructionSet.needers));
         mReadyToRun = new LinkedList<Instruction>();
         for (Instruction inst : mInstructionSet.providers)
-            if (inst.parameters.length == 0)
+            if (inst.needed.length == 0)
                 mReadyToRun.add(inst);
     }
 
     private Object executeInstruction(Instruction inst, boolean forceSync) {
-        Object[] args = new Object[inst.parameters.length];
-        for (int j = 0; j < inst.parameters.length; j++) {
-            args[j] = mResults[inst.parameters[j]];
+        Object[] args = new Object[inst.parameterCount];
+        for (int j = 0; j < inst.parameterCount; j++) {
+            args[j] = mResults[inst.needed[j]];
         }
         if (!forceSync && inst.async) {
             mRunningAsyncCount++;
@@ -81,7 +81,7 @@ import java.util.concurrent.Executors;
         while (it.hasNext()) {
             Instruction dep = it.next();
             boolean satisfied = true;
-            for (int para : dep.parameters) {
+            for (int para : dep.needed) {
                 if (!mHaveResults[para]) {
                     satisfied = false;
                     break;
