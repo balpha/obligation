@@ -7,5 +7,11 @@ public abstract class BaseTest extends ActivityInstrumentationTestCase2<TestActi
     public BaseTest() {
         super(TestActivity.class);
     }
-
+    public void sleep(int ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

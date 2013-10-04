@@ -11,6 +11,7 @@ public abstract class Obligation {
     private static Map<Class, InstructionSet> cache = new HashMap<Class, InstructionSet>();
 
     private boolean mStarted = false;
+    private Job mJob;
 
     private static synchronized InstructionSet getInstructionSet(Class<? extends Obligation> cls) {
         InstructionSet is = cache.get(cls);
@@ -185,8 +186,12 @@ public abstract class Obligation {
         mStarted = true;
         Class<? extends Obligation> cls = this.getClass();
         InstructionSet is = getInstructionSet(cls);
-        Job job = is.createJob(this);
-        job.go();
+        mJob = is.createJob(this);
+        mJob.go();
+    }
+
+    public void cancel() {
+        mJob.cancel();
     }
 
     protected void onComplete() { }

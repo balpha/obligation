@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
     Obligation mObligation;
     Object[] mResults;
     boolean[] mHaveResults;
-    int mRunningAsyncCount = 0;
+    HashSet<AsyncTask> mRunningAsync = new HashSet<AsyncTask>();
 
     Queue<Instruction> mReadyToRun;
     LinkedList<Instruction> mDependent;
@@ -40,8 +40,9 @@ import java.util.concurrent.Executors;
             args[j] = mResults[inst.needed[j]];
         }
         if (!forceSync && inst.async) {
-            mRunningAsyncCount++;
-            new AsyncRun(inst).executeOnExecutor(sThreadPool);
+            AsyncRun task = new AsyncRun(inst);
+            mRunningAsync.add(task);
+            task.executeOnExecutor(sThreadPool);
             return null;
         } else {
             Object result;
@@ -67,7 +68,7 @@ import java.util.concurrent.Executors;
             if (!inst.async && inst.result >= 0)
                 setResult(inst.result, result);
         }
-        if (mDependent.isEmpty() && mRunningAsyncCount == 0)
+        if (mDependent.isEmpty() && mRunningAsync.isEmpty())
             mObligation.onComplete();
     }
 
@@ -94,6 +95,13 @@ import java.util.concurrent.Executors;
         }
     }
 
+    public void cancel() {
+        for (AsyncTask task : mRunningAsync) {
+            task.cancel(false);
+            mRunningAsync = null;
+        }
+    }
+
     private class AsyncRun extends AsyncTask<Void, Void, Object> {
         private Instruction mInst;
 
@@ -108,7 +116,9 @@ import java.util.concurrent.Executors;
 
         @Override
         protected void onPostExecute(Object result) {
-            mRunningAsyncCount--;
+            if (isCancelled())
+                return;
+            mRunningAsync.remove(this);
             if (mInst.result >= 0)
                 setResult(mInst.result, result);
             go();
