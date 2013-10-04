@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="obligation:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/obligation_jar</output-path>
+    <root id="archive" name="obligation.jar">
+      <element id="module-output" name="obligation" />
+    </root>
+  </artifact>
+</component>

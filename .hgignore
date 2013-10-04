@@ -1,0 +1,16 @@
+# use glob syntax
+syntax: glob
+
+# Ignore patterns
+glob:.idea/workspace.xml
+glob:.idea/tasks.xml
+glob:out/*
+.git
+.metadata/
+bin/
+gen/
+StackExchangeMobile/assets/hgrevision
+Thumbs.db
+.DS_Store
+local.properties
+.idea/inspectionProfiles/*
