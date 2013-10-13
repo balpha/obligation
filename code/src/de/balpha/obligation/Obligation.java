@@ -32,8 +32,7 @@ public abstract class Obligation {
 
     public static String checkObligation(Class<? extends Obligation> cls) {
         try {
-            //noinspection unchecked
-            buildInstructionSet((Class<? extends Obligation>)cls);
+            buildInstructionSet(cls);
         } catch (Exception e) {
             return e.getMessage();
         }
