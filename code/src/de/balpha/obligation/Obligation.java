@@ -4,6 +4,7 @@ import android.content.Context;
 import dalvik.system.DexFile;
 
 import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -12,6 +13,7 @@ public abstract class Obligation {
 
     private boolean mStarted = false;
     private Job mJob;
+
 
     private static synchronized InstructionSet getInstructionSet(Class<? extends Obligation> cls) {
         InstructionSet is = cache.get(cls);
@@ -60,7 +62,7 @@ public abstract class Obligation {
         return null;
     }
 
-    private static boolean isFreeOfCircularDependencies(Instruction[] instructions) {
+    private static boolean isFreeOfCircularDependencies(List<Instruction> instructions) {
         LinkedList<Instruction> queue = new LinkedList<Instruction>();
         HashSet<Integer> fulfilled = new HashSet<Integer>();
         LinkedList<Instruction> unfulfilled = new LinkedList<Instruction>();
@@ -118,16 +120,22 @@ public abstract class Obligation {
             nextId++;
         }
         ArrayList<Instruction> providers = new ArrayList<Instruction>();
-        ArrayList<Instruction> needers = new ArrayList<Instruction>();
+        ArrayList<Instruction> goals = new ArrayList<Instruction>();
         ArrayList<Instruction> all = new ArrayList<Instruction>();
         for (Method method : methods) {
             Needs needs = method.getAnnotation(Needs.class);
             Provides provides = method.getAnnotation(Provides.class);
-            if (needs == null && provides == null)
-                continue;
+            boolean isGoal = method.isAnnotationPresent(Goal.class);
+            if (provides == null && !isGoal) {
+                if (needs != null)
+                    throw new RuntimeException("Obligation method " + method.getName() + " doesn't provide anything and is no goal method; it would never be run.");
+                else
+                    continue; // not an obligation method
+            }
             Instruction inst = new Instruction();
             inst.method = method;
             inst.async = method.isAnnotationPresent(Async.class);
+            inst.goal = isGoal;
             if (provides != null)
                 inst.result = idMap.get(provides.value());
             else
@@ -158,34 +166,49 @@ public abstract class Obligation {
             }
             if (inst.result >= 0)
                 providers.add(inst);
-            if (inst.needed.length > 0)
-                needers.add(inst);
+            if (inst.goal)
+                goals.add(inst);
             all.add(inst);
             inst.method.setAccessible(true);
         }
 
         InstructionSet result = new InstructionSet();
         result.providers = new Instruction[providers.size()];
-        providers.toArray(result.providers);
-        result.needers = new Instruction[needers.size()];
-        needers.toArray(result.needers);
-        result.all = new Instruction[all.size()];
-        all.toArray(result.all);
+        for (Instruction p : providers) {
+            result.providers[p.result] = p;
+        }
+        result.goals = new Instruction[goals.size()];
+        goals.toArray(result.goals);
 
-        if (!isFreeOfCircularDependencies(result.all)) {
+        if (!isFreeOfCircularDependencies(all)) {
             throw new RuntimeException("Obligation has circular dependencies");
         }
+        result.idMap = idMap;
 
         return result;
+    }
+
+    private void ensureJob() {
+        if (mJob == null) {
+            Class<? extends Obligation> cls = this.getClass();
+            InstructionSet is = getInstructionSet(cls);
+            mJob = is.createJob(this);
+        }
+    }
+
+    protected void setResult(int id, Object data) {
+        if (mStarted)
+            throw new RuntimeException("Obligation cannot be given data externally after fulfillment has started");
+        ensureJob();
+        mJob.setResultExternal(id, data);
     }
 
     public void fulfill() {
         if (mStarted)
             throw new RuntimeException("Obligation can only be fulfilled once");
         mStarted = true;
-        Class<? extends Obligation> cls = this.getClass();
-        InstructionSet is = getInstructionSet(cls);
-        mJob = is.createJob(this);
+        ensureJob();
+        mJob.prepare();
         mJob.go();
     }
 

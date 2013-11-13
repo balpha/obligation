@@ -1,10 +1,7 @@
 package de.balpha.obligation.test;
 
 import android.test.ActivityInstrumentationTestCase2;
-import de.balpha.obligation.Async;
-import de.balpha.obligation.Needs;
-import de.balpha.obligation.Obligation;
-import de.balpha.obligation.Provides;
+import de.balpha.obligation.*;
 import de.balpha.obligation.testapp.TestActivity;
 
 public class AsyncTest extends ActivityInstrumentationTestCase2<TestActivity> {
@@ -19,6 +16,7 @@ public class AsyncTest extends ActivityInstrumentationTestCase2<TestActivity> {
         private boolean onCompleteCalled = false;
 
         @Needs(FOO)
+        @Goal
         private void done(String s) {
             assertFalse(onCompleteCalled);
             assertEquals(s, "Hello");

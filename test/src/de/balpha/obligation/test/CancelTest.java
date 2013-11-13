@@ -1,9 +1,6 @@
 package de.balpha.obligation.test;
 
-import de.balpha.obligation.Async;
-import de.balpha.obligation.Needs;
-import de.balpha.obligation.Obligation;
-import de.balpha.obligation.Provides;
+import de.balpha.obligation.*;
 
 public class CancelTest extends BaseTest {
     public class CancelObligation extends Obligation {
@@ -24,11 +21,13 @@ public class CancelTest extends BaseTest {
         }
 
         @Needs({1, 2})
+        @Goal
         private void c() {
             assertFalse("should never have been called", true);
         }
 
         @Needs(1)
+        @Goal
         private void d() {
             s = 1;
         }

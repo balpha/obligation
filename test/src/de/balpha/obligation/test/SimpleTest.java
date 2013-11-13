@@ -1,6 +1,7 @@
 package de.balpha.obligation.test;
 
 import android.test.ActivityInstrumentationTestCase2;
+import de.balpha.obligation.Goal;
 import de.balpha.obligation.Needs;
 import de.balpha.obligation.Obligation;
 import de.balpha.obligation.Provides;
@@ -23,6 +24,7 @@ public class SimpleTest extends ActivityInstrumentationTestCase2<TestActivity> {
         }
 
         @Needs(AND_THEN_SOME)
+        @Goal
         private void done(int input) {
             result = input;
         }
