@@ -40,6 +40,7 @@ public class ExternalDataText extends BaseTest {
 
     private static class ShouldHaveThrownException extends RuntimeException {}
 
+    @android.test.UiThreadTest
     public void testExternalData() {
         ExternalDataObligation o = new ExternalDataObligation();
         try {

@@ -33,9 +33,14 @@ public class CancelTest extends BaseTest {
         }
     }
 
-    public void testCancel() {
-        CancelObligation o = new CancelObligation();
-        o.fulfill();
+    public void testCancel() throws Throwable {
+        final CancelObligation o = new CancelObligation();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                o.fulfill();
+            }
+        });
         sleep(300);
         o.cancel();
         sleep(400);

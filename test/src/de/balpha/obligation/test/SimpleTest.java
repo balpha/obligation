@@ -47,6 +47,7 @@ public class SimpleTest extends ActivityInstrumentationTestCase2<TestActivity> {
         }
     }
 
+    @android.test.UiThreadTest
     public void testSimple() {
         SimpleObligation so = new SimpleObligation(3);
         so.fulfill();

@@ -9,4 +9,8 @@ import java.lang.reflect.Method;
     Method method;
     boolean async;
     boolean goal;
+
+    public boolean isProvider() {
+        return result >= 0;
+    }
 }

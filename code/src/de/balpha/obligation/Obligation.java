@@ -1,6 +1,7 @@
 package de.balpha.obligation;
 
 import android.content.Context;
+import android.os.Looper;
 import dalvik.system.DexFile;
 
 import java.io.IOException;
@@ -103,6 +104,7 @@ public abstract class Obligation {
     // FIXME: handle inheritance?
     private static InstructionSet buildInstructionSet(Class<? extends Obligation> cls) {
         HashMap<Integer, Integer> idMap = new HashMap<Integer, Integer>(); // keys are code-provided, values are the internal ones
+        HashMap<Integer, Integer> idMapReverse = new HashMap<Integer, Integer>(); // keys are the internal ones, values are code-provided
         int nextId = 0;
         ArrayList<Class<?>> providerTypes = new ArrayList<Class<?>>(); // FIXME: handle generics
         Method[] methods = cls.getDeclaredMethods();
@@ -116,6 +118,7 @@ public abstract class Obligation {
             if (idMap.containsKey(val))
                 throw new RuntimeException("multiple Obligation methods provide object id " + val);
             idMap.put(val, nextId);
+            idMapReverse.put(nextId, val);
             providerTypes.add(method.getReturnType());
             nextId++;
         }
@@ -184,6 +187,7 @@ public abstract class Obligation {
             throw new RuntimeException("Obligation has circular dependencies");
         }
         result.idMap = idMap;
+        result.idMapReverse = idMapReverse;
 
         return result;
     }
@@ -204,6 +208,8 @@ public abstract class Obligation {
     }
 
     public void fulfill() {
+        if (Looper.myLooper() != Looper.getMainLooper())
+            throw new RuntimeException("Obligation.fulfill() must be called from the UI thread");
         if (mStarted)
             throw new RuntimeException("Obligation can only be fulfilled once");
         mStarted = true;
@@ -217,4 +223,8 @@ public abstract class Obligation {
     }
 
     protected void onComplete() { }
+
+    public void onException(ExceptionWrapper problem, int id) {
+        // nothing
+    }
 }

@@ -26,7 +26,7 @@ public class DoesNotNeedAllTest extends BaseTest {
             mS = s;
         }
     }
-
+    @android.test.UiThreadTest
     public void testDoesNotNeedAll() {
         DoesNotNeedAllObligation o = new DoesNotNeedAllObligation();
         o.fulfill();

@@ -1,6 +1,7 @@
 package de.balpha.obligation;
 
 import android.os.AsyncTask;
+import android.os.Looper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -15,10 +16,15 @@ import java.util.concurrent.Executors;
     Obligation mObligation;
     Object[] mResults;
     boolean[] mHaveResults;
+
+    boolean[] mInstructionSuspended;
+
     HashSet<AsyncTask> mRunningAsync = new HashSet<AsyncTask>();
 
     Queue<Instruction> mReadyToRun;
     Queue<Instruction> mNeedToRun;
+
+    LinkedList<ExceptionWrapper> mBlockingExceptions = new LinkedList<ExceptionWrapper>();
 
     private boolean isReady(Instruction inst) {
         for (int dep : inst.needed) {
@@ -34,7 +40,14 @@ import java.util.concurrent.Executors;
 
         mResults = new Object[instructionSet.providers.length];
         mHaveResults = new boolean[instructionSet.providers.length];
+        mInstructionSuspended = new boolean[instructionSet.providers.length];
     }
+
+    private boolean isJobSuspended() {
+        return mBlockingExceptions.size() > 0;
+    }
+
+
 
     void prepare() {
 
@@ -81,7 +94,7 @@ import java.util.concurrent.Executors;
 
     }
 
-    private Object executeInstruction(Instruction inst, boolean forceSync) {
+    private Object executeInstruction(Instruction inst, boolean forceSync) throws InvocationTargetException {
         Object[] args = new Object[inst.parameterCount];
         for (int j = 0; j < inst.parameterCount; j++) {
             args[j] = mResults[inst.needed[j]];
@@ -97,21 +110,40 @@ import java.util.concurrent.Executors;
                 result = inst.method.invoke(mObligation, args);
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
-            } catch (InvocationTargetException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException)
-                    throw (RuntimeException)cause;
-                else
-                    throw new RuntimeException(cause);
             }
             return result;
         }
+    }
+
+    private static RuntimeException asRuntimeException(Throwable ex) {
+        if (ex instanceof RuntimeException)
+            return (RuntimeException)ex;
+        else
+            return new RuntimeException(ex);
+    }
+
+    private Object onException(Instruction inst, Throwable exception) {
+        if (!inst.isProvider())
+            throw asRuntimeException(exception);
+        boolean causedSuspension = !isJobSuspended();
+        ExceptionWrapper wrapper = new ExceptionWrapper(exception, causedSuspension, this, inst);
+        mBlockingExceptions.add(wrapper);
+        mObligation.onException(wrapper, mInstructionSet.idMapReverse.get(inst.result));
+        if (!wrapper.mHandled) {
+            throw asRuntimeException(exception);
+        }
+        if (wrapper.resultProvided)
+            return wrapper.result;
+        else
+            return null;
     }
 
     private void checkReady() {
         Iterator<Instruction> it = mNeedToRun.iterator();
         while (it.hasNext()) {
             Instruction dep = it.next();
+            if (isInstructionSuspended(dep))
+                continue;
             boolean satisfied = true;
             for (int para : dep.needed) {
                 if (!mHaveResults[para]) {
@@ -126,17 +158,50 @@ import java.util.concurrent.Executors;
         }
     }
 
+    public void suspendInstruction(Instruction inst) {
+        mInstructionSuspended[inst.result] = true;
+    }
+
+    public void resumeInstruction(Instruction inst) {
+        mInstructionSuspended[inst.result] = false;
+        checkReady();
+        go();
+    }
+
+    private boolean isInstructionSuspended(Instruction inst) {
+        return inst.isProvider() && mInstructionSuspended[inst.result];
+    }
+
+    public void resumeFrom(ExceptionWrapper wrapper, boolean goAgain) {
+        mBlockingExceptions.remove(wrapper);
+        if (goAgain && !mIsGoing)
+            go();
+    }
+
+    private boolean mIsGoing = false;
+
     void go() {
-        while (mReadyToRun.size() > 0) {
+        mIsGoing = true;
+        while (mReadyToRun.size() > 0 && !isJobSuspended()) {
             Instruction inst = mReadyToRun.remove();
-            Object result = executeInstruction(inst, false);
-            if (!inst.async && inst.result >= 0) {
+            Object result = null;
+            try {
+                result = executeInstruction(inst, false);
+            } catch (InvocationTargetException e) {
+                result = onException(inst, e.getCause());
+            }
+            if (isInstructionSuspended(inst)) {
+                mNeedToRun.add(inst);
+            } else if (!inst.async && inst.result >= 0) {
                 setResult(inst.result, result);
                 checkReady();
             }
         }
+
+        // note that if the job is suspended at this point, then so is some instruction, and thus mNeedToRun is not empty
         if (mNeedToRun.isEmpty() && mRunningAsync.isEmpty())
             mObligation.onComplete();
+        mIsGoing = false;
     }
 
     private static Map<Class, Class> primitiveMap = new HashMap<Class, Class>(8);
@@ -151,14 +216,18 @@ import java.util.concurrent.Executors;
         primitiveMap.put(Double.TYPE, Double.class);
     }
 
-    void setResultExternal(int extId, Object result) {
-        Integer id = mInstructionSet.idMap.get(extId);
+    boolean checkType(int id, Object result) {
         Class<?> expected = mInstructionSet.providers[id].method.getReturnType();
         Class<?> actual = result.getClass();
         if (expected.isPrimitive()) {
             expected = primitiveMap.get(expected);
         }
-        if (!expected.isAssignableFrom(actual))
+        return expected.isAssignableFrom(actual);
+    }
+
+    void setResultExternal(int extId, Object result) {
+        Integer id = mInstructionSet.idMap.get(extId);
+        if (!checkType(id, result))
             throw new RuntimeException("setResult given wrong type; expected " + mInstructionSet.providers[id].method.getReturnType().getName() + " but got " +result.getClass().getName());
         setResult(id, result);
     }
@@ -179,6 +248,7 @@ import java.util.concurrent.Executors;
 
     private class AsyncRun extends AsyncTask<Void, Void, Object> {
         private Instruction mInst;
+        private InvocationTargetException mException;
 
         public AsyncRun(Instruction inst) {
             mInst = inst;
@@ -186,7 +256,12 @@ import java.util.concurrent.Executors;
 
         @Override
         protected Object doInBackground(Void... params) {
-            return executeInstruction(mInst, true);
+            try {
+                return executeInstruction(mInst, true);
+            } catch (InvocationTargetException e) {
+                mException = e;
+                return null;
+            }
         }
 
         @Override
@@ -194,6 +269,13 @@ import java.util.concurrent.Executors;
             if (isCancelled())
                 return;
             mRunningAsync.remove(this);
+            if (mException != null) {
+                result = onException(mInst, mException.getCause());
+            }
+            if (isInstructionSuspended(mInst)) {
+                mNeedToRun.add(mInst);
+                return;
+            }
             if (mInst.result >= 0) {
                 setResult(mInst.result, result);
                 checkReady();
