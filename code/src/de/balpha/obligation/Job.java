@@ -194,6 +194,8 @@ import java.util.concurrent.Executors;
     private boolean mIsGoing = false;
 
     void go() {
+        if (isCancelled)
+            return;
         mIsGoing = true;
         while (mReadyToRun.size() > 0 && !isJobSuspended()) {
             Instruction inst = mReadyToRun.remove();
@@ -203,6 +205,8 @@ import java.util.concurrent.Executors;
             } catch (InvocationTargetException e) {
                 result = onException(inst, e.getCause());
             }
+            if (isCancelled)
+                break;
             if (isInstructionSuspended(inst)) {
                 mNeedToRun.add(inst);
             } else if (!inst.async && inst.result >= 0) {
@@ -252,11 +256,13 @@ import java.util.concurrent.Executors;
         mHaveResults[index] = true;
     }
 
+    private boolean isCancelled = false;
     public void cancel() {
         for (AsyncTask task : mRunningAsync) {
             task.cancel(false);
             mRunningAsync = null;
         }
+        isCancelled = true;
     }
 
     private class AsyncRun extends AsyncTask<Void, Void, Object> {
