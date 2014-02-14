@@ -40,14 +40,23 @@ public class ExceptionWrapper {
             mJob.resumeFrom(this, false);
     }
 
+    public void retryAll() {
+        mJob.resumeFromAll();
+    }
+
     public void retry() {
+        retry(true);
+    }
+    void retry(boolean callResume) {
         if (!mExpectingRetry)
             throw new RuntimeException("unexpected call to retry()");
         if (Looper.myLooper() != Looper.getMainLooper())
             throw new RuntimeException("retry must be called from the UI thread");
         mExpectingRetry = false;
-        mJob.resumeInstruction(mInstruction);
-        mJob.resumeFrom(this, true);
+        if (callResume) {
+            mJob.resumeInstruction(mInstruction);
+            mJob.resumeFrom(this, true);
+        }
     }
 
     public void useResult(Object data) {

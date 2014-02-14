@@ -172,7 +172,20 @@ import java.util.concurrent.Executors;
         return inst.isProvider() && mInstructionSuspended[inst.result];
     }
 
-    public void resumeFrom(ExceptionWrapper wrapper, boolean goAgain) {
+    void resumeFromAll() {
+        for (int i = 0; i < mInstructionSuspended.length; i++)
+            mInstructionSuspended[i] = false;
+
+        while (!mBlockingExceptions.isEmpty()) {
+            ExceptionWrapper e = mBlockingExceptions.pop();
+            e.retry(false);
+        }
+        checkReady();
+        if (!mIsGoing)
+            go();
+    }
+
+    void resumeFrom(ExceptionWrapper wrapper, boolean goAgain) {
         mBlockingExceptions.remove(wrapper);
         if (goAgain && !mIsGoing)
             go();
