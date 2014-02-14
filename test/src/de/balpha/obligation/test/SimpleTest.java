@@ -15,15 +15,17 @@ public class SimpleTest extends ActivityInstrumentationTestCase2<TestActivity> {
         private static final int START = 1;
         private static final int TWICE = 2;
         private static final int AND_THEN_SOME = 3;
+        private static final int VOID = 4;
 
         private final int mStart;
         public int result;
+        boolean voidCalled = false;
 
         private SimpleObligation(int start) {
             mStart = start;
         }
 
-        @Needs(AND_THEN_SOME)
+        @Needs({AND_THEN_SOME, VOID})
         @Goal
         private void done(int input) {
             result = input;
@@ -45,6 +47,11 @@ public class SimpleTest extends ActivityInstrumentationTestCase2<TestActivity> {
         private int startValue() {
             return mStart;
         }
+
+        @Provides(VOID)
+        private void doNothing() {
+            voidCalled = true;
+        }
     }
 
     @android.test.UiThreadTest
@@ -52,6 +59,6 @@ public class SimpleTest extends ActivityInstrumentationTestCase2<TestActivity> {
         SimpleObligation so = new SimpleObligation(3);
         so.fulfill();
         assertEquals(so.result, 10);
-
+        assertTrue(so.voidCalled);
     }
 }
