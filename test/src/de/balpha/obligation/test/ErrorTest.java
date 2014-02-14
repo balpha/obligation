@@ -68,6 +68,14 @@ public class ErrorTest extends ActivityInstrumentationTestCase2<TestActivity> {
         private int bar() { return 999; }
     }
 
+    private static class NoGoalAndTooManyParams extends Obligation {
+        @Needs({1, 2})
+        private void foo(int i) {}
+
+        @Provides(1)
+        private int bar() { return 999; }
+    }
+
     public ErrorTest() {
         super(TestActivity.class);
     }
@@ -79,7 +87,9 @@ public class ErrorTest extends ActivityInstrumentationTestCase2<TestActivity> {
         assertErrorContains(ParamCountMismatch.class, "has more parameters than @Needs() arguments");
         assertErrorContains(Circular1.class, "circular dependencies");
         assertErrorContains(Circular2.class, "circular dependencies");
-        assertErrorContains(NoGoal.class, "foo doesn't provide anything and is no goal");
+        assertErrorContains(NoGoalAndTooManyParams.class, "and is neither a goal nor a provider");
+        assertNull(Obligation.checkObligation(NoGoal.class));
+
     }
 
     private static void assertErrorContains(Class<? extends Obligation> cls, String error) {

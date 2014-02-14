@@ -129,9 +129,10 @@ public abstract class Obligation {
             Needs needs = method.getAnnotation(Needs.class);
             Provides provides = method.getAnnotation(Provides.class);
             boolean isGoal = method.isAnnotationPresent(Goal.class);
+            boolean typeCheckOnly = false;
             if (provides == null && !isGoal) {
                 if (needs != null)
-                    throw new RuntimeException("Obligation method " + method.getName() + " doesn't provide anything and is no goal method; it would never be run.");
+                    typeCheckOnly = true; // a method that provides nothing and is not a goal method will never be called by th obligation mechanism
                 else
                     continue; // not an obligation method
             }
@@ -154,6 +155,8 @@ public abstract class Obligation {
                 int[] neededIds = needs.value();
                 if (params.length > neededIds.length)
                     throw new RuntimeException("Obligation method " + method.getName() + " has more parameters than @Needs() arguments");
+                if (typeCheckOnly && params.length < neededIds.length)
+                    throw new RuntimeException("Obligation method " + method.getName() + " has fewer parameters than @Needs() arguments, and is neither a goal nor a provider. This is very likely a mistake.");
                 inst.needed = new int[neededIds.length];
                 inst.parameterCount = params.length;
                 for (int i = 0; i < neededIds.length; i++) {
@@ -167,6 +170,10 @@ public abstract class Obligation {
                     }
                 }
             }
+
+            if (typeCheckOnly)
+                continue;
+
             if (inst.result >= 0)
                 providers.add(inst);
             if (inst.goal)
