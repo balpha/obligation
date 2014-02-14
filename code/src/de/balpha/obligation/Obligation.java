@@ -231,7 +231,7 @@ public abstract class Obligation {
 
     protected void onComplete() { }
 
-    public void onException(ExceptionWrapper problem, int id) {
+    protected void onException(ExceptionWrapper problem, int dataId) {
         // nothing
     }
 }
